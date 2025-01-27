@@ -1,195 +1,261 @@
 #include "file_system.hpp"
-#include <iostream>
 
 
-int Disk::getFreeBlock() {
-    for (int i = 8; i < 512; ++i)
-        if (blocks[0][i] == byte{0})
-            return i;
+OpenFile OFT[4] = {0};
+unsigned char M[BLOCK_SIZE] = {0};
+unsigned char C[7][BLOCK_SIZE] = {0};
+unsigned char D[BLOCKS][BLOCK_SIZE] = {0};
+bool init = false;
 
-    return -1;
+
+void copy_buffer(unsigned char *dest, unsigned char *source, int n) {
+    for (int i = 0; i < n; ++i) {
+        dest[i] = source[i];
+    }
 }
 
-FileDescriptor* Disk::getDirFileDescriptor() {
-    return (FileDescriptor*)&(blocks[1][0]);
+
+string initialize() {
+
+    // initialize disk
+    for (int b = 0; b < BLOCKS; ++b) 
+        for (int i = 0; i < BLOCK_SIZE; ++i)
+            D[b][i] = 0;
+
+    /// initialize bitmap
+    for (int i = 0; i < 8; ++i)
+        D[0][i] = BYTE_ONE;
+ 
+    // initialize directory file descriptor
+    FileDescriptor* dirFD = (FileDescriptor*)&(D[1][0]);
+    dirFD->length = 0;
+    dirFD->blocks[0] = 7;
+  
+    // initialize cache
+    for (int b = 0; b < 8; ++b)
+        for (int i = 0; i < BLOCK_SIZE; ++i)
+            C[b][i] = D[b][i];
+
+    // initialize memory
+    for (int i = 0; i < BLOCK_SIZE; ++i)
+        M[i] = 0;
+
+    // initialize open file table
+    for (int f = 0; f < 4; ++f) {
+        OFT[f].pos = 0; 
+        OFT[f].size = 0; 
+        OFT[f].index = 0; 
+        for (int i = 0; i < BLOCK_SIZE; ++i)
+            OFT[f].buff[i] = 0;
+    }
+    
+    // open dir
+    OFT[0].pos = 0;  
+    OFT[0].size = 0;
+    OFT[0].index = 0;
+    for (int i = 0; i < BLOCK_SIZE; ++i)  
+        OFT[0].buff[i] = D[dirFD->blocks[0]][i];
+
+    init = true;
+
+    return "system initilaized";
 }
-FileDescriptor* Disk::getFileDescriptor(int index) {
-    return (FileDescriptor*)&(blocks[(index / 512) + 1][index % 512]);
+int write_memory(const int &mem, const string &str) {
+    if (!init)
+        return 0;
+
+    if (mem < 0 || mem + str.length() - 1 >= BLOCK_SIZE) // read out of bounds
+        return 0;
+             
+    strncpy((char*)(M + mem), str.c_str(), str.length());
+    
+    return str.length();
 }
-int Disk::getFreeFileDescriptor() {
-    for (int b = 1; b <= 6; ++b) {
-        for (int i = sizeof(FileDescriptor); i < 6 * 512; i += sizeof(FileDescriptor)) {
-            FileDescriptor* fd = (FileDescriptor*)&(blocks[b][i % 512]);
-            if (fd->length == 0 && fd->blocks[0] == 0)
-                return i;
+string read_memory(const int &mem, const int &count) {
+    if (!init)
+        return "error";
+
+    if (mem < 0 || mem + count - 1 >= BLOCK_SIZE) // read out of bounds
+        return "error";
+
+    char *str = new char[count + 1]; 
+    strncpy(str, (char*)(M + mem), count);
+    str[count] = '\0';
+    
+    string result{str};
+    delete[] str;
+
+    return result; 
+}
+int seek(const int &index, const int &pos) {
+    if (!init)
+        return -1;
+
+    if (index < 0 || index > 4)
+        return -1;
+
+    OpenFile& of = OFT[index];
+    if (index != 0 && of.index == 0) // if file is open at index
+        return -1;
+    else if (pos >= of.size) // if position exceeds file size
+        return -1;
+ 
+    // if pos moves to different block
+    if (pos / BLOCK_SIZE != of.pos / BLOCK_SIZE) {
+        // open file descriptor
+        int b = of.index / BLOCK_SIZE + 1;
+        FileDescriptor* fd = (FileDescriptor*)&(C[b][of.index % BLOCK_SIZE]);
+
+        // copy buffer into current block
+        int currentBlock = fd->blocks[of.pos / BLOCK_SIZE];  
+        copy_buffer(D[currentBlock], of.buff, BLOCK_SIZE);
+        // copy size into file descriptor
+        fd->length = of.size;
+        
+        // copy new block into buffer
+        int newBlock = fd->blocks[pos / BLOCK_SIZE];
+        copy_buffer(of.buff, D[newBlock], BLOCK_SIZE);
+    } 
+
+    of.pos = pos; 
+
+    return pos;
+}
+int open(const string &name) {
+    if (!init)
+        return -1;
+
+    // check filename length
+    if (name.length() < 0 || name.length() > 3)
+        return -1;
+
+    // get open OFT index
+    int tableIndex = 0;
+    for (int i = 1; i < 4; ++i) {
+        if (OFT[i].index == 0) {
+            tableIndex = i;
+            break;
         }
     }
+    if (tableIndex == 0) // check if open index exists
+        return -1;
 
-    return -1;
-}
-
-FileEntry* Disk::getFileEntry(const string &name) { 
-    FileDescriptor* dir = getDirFileDescriptor();
-
-    for (int i = 0; i < 3 * 512 && dir->blocks[i / 512]; i += sizeof(FileEntry)) {
-        int block = dir->blocks[i / 512];
-        int index = (i % 512);
-        FileEntry* fe = (FileEntry*)&(blocks[block][index]);
-
-        if (string(fe->name) == name)
-            return fe;
-    }  
-    return nullptr;
-}
-FileEntry* Disk::getFreeFileEntry() {
-    FileDescriptor* dir = getDirFileDescriptor();
-
-    for (int i = 0; i < 3 * 512 && dir->blocks[i / 512]; i += sizeof(FileEntry)) {
-        int block = dir->blocks[i / 512];
-        int index = (i % 512);
-        FileEntry* fe = (FileEntry*)&(blocks[block][index]);
-
-        if (!fe->name[0])
-            return fe;
-    }  
-    return nullptr;
-}
-
-
-
-void Disk::initialize() {
-    // set all bytes to 0
-    for (int b = 0; b <= 63; ++b)
-        for (int i = 0; i < 512; ++i)
-            blocks[b][i] = byte{0};
-
-    // set bitmap
-    for (int i = 0; i <= 7; ++i)
-        blocks[0][i] = byte{255};
-
-    // directory file descriptor
-    FileDescriptor* dir = getDirFileDescriptor();
-    dir->length = 0;
-    dir->blocks[0] = 7;
-
-    initialized = true;
-}
-bool Disk::createFile(const string &name) {
-    // check if name length is valid
-    if (name.length() <= 0 || name.length() >= 4)
-        return false;
-
-    // check if filename exists in directory
-    FileEntry* fe = getFileEntry(name);
-    if (fe)
-        return false;
-
-    // check for free blocks
-    int freeBlock = getFreeBlock();
-    if (freeBlock == -1)
-        return false;
-
-    // check for free FileDescriptor
-    int freeFileDescriptorIndex = getFreeFileDescriptor(); 
-    if (freeFileDescriptorIndex == -1)
-        return false;
-    
-    // check for free FileEntry
-    fe = getFreeFileEntry();
-    if (!fe)
-        return false;
-
-    // initialize FileEntry
-    strncpy(fe->name, name.c_str(), 3);
-    fe->index = freeFileDescriptorIndex;
-
-    // initialize FileDescriptor
-    FileDescriptor* fd = getFileDescriptor(freeFileDescriptorIndex);
-    fd->length = 0;
-    fd->blocks[0] = freeBlock;
-    blocks[0][freeBlock] = byte{255};
-
-    return true;
-}
-bool Disk::deleteFile(const string &name) {
-    // check if name length is valid
-    if (name.length() <= 0 || name.length() >= 4)
-        return false;
-
-    // check if filename exists in directory
-    FileEntry* fe = getFileEntry(name);
-    if (!fe)
-        return false;
+    // get filename FileEntry
+    FileEntry* fe =  nullptr;
+    for (int i = 0; i < BLOCK_SIZE * 3 && seek(0, i) != -1; i += sizeof(FileEntry)) {
+        OpenFile& dir = OFT[0];
+        FileEntry* feTemp = (FileEntry*)&(dir.buff[i % BLOCK_SIZE]);
+        if (strncmp(feTemp->name, name.c_str(), 3) == 0) {
+            fe = feTemp;
+            break;
+        }
+    }
+    if (!fe) // check if FileEntry exists
+        return -1;   
 
     // get FileDescriptor
-    FileDescriptor* fd = getFileDescriptor(fe->index);
+    int fdIndex = fe->index;
+    int b = fdIndex / BLOCK_SIZE + 1;
+    FileDescriptor* fd = (FileDescriptor*)&(C[b][fdIndex % BLOCK_SIZE]);
 
-    // bitmap 0 for all allocated blocks
-    // zero out all values for FileDescriptor    
-    for (int b = 0; b < 3 && fd->blocks[b]; ++b) {
-        blocks[0][fd->blocks[b]] = byte{0};
-        
-        for (int i = 0; i < 512 && blocks[fd->blocks[b]][i] != byte{0}; ++i)
-            blocks[fd->blocks[b]][i] = byte{0};                 
+    // copy first block of file to OFT entry
+    b = fd->blocks[0];
+    copy_buffer(OFT[tableIndex].buff, D[b], BLOCK_SIZE);
+    OFT[tableIndex].pos = 0;
+    OFT[tableIndex].size = fd->length;
+    OFT[tableIndex].index = fe->index;
 
-        fd->blocks[b] = 0;
-    }
-    fd->length = 0;
+    return tableIndex;    
+}
+int close(const int &index) {
+    if (!init)
+        return -1;
 
-    // zero out all values for FileEntry
-    for (int i = 0; i < 4 && fe->name[i]; ++i)
-        fe->name[i] = '\0';
-    fe->index = 0;
+    // check if index is in bounds
+    if (index < 1 || index > 3)
+        return -1;
+
+    // check if index is open
+    OpenFile &of = OFT[index];
+    if (of.index == 0)
+        return -1;
+
+    // open file descriptor
+    int b = of.index / BLOCK_SIZE + 1;
+    FileDescriptor* fd = (FileDescriptor*)&(C[b][of.index % BLOCK_SIZE]);
+
+    // save buffer and update length of file descriptor
+    b = fd->blocks[of.pos / BLOCK_SIZE];
+    copy_buffer(D[b], of.buff, BLOCK_SIZE);   
+    fd->length = of.size;
+
+    // reset OFT entry
+    unsigned char empty[BLOCK_SIZE] = {0};  
+    copy_buffer(of.buff, empty, BLOCK_SIZE);
+    OFT[index].pos = 0;
+    OFT[index].size = 0;
+    OFT[index].index = 0;
+
+    return index;
+}
+string create(const string &name) {
+    if (!init)
+        return "error";
     
-    return true;
+    if (name.length() < 0 || name.length() > 3)
+        return "error";
+
+    // check if file exists NEEED TO DO WITH OFT
+    FileDescriptor* dirFd = (FileDescriptor*)&(D[1][0]);
+    for (int b = 0, i = 0; i < 3 * BLOCK_SIZE && (b = dirFd->blocks[i/BLOCK_SIZE]); i += sizeof(FileEntry)) {
+        FileEntry* fe = (FileEntry*)&(D[b][i % BLOCK_SIZE]); 
+        if (strncmp(fe->name, name.c_str(), 3) == 0)
+            return "error";
+    }
+
+    // check for open block
+    int openB = 0;
+    for (int i = 8; i < BLOCK_SIZE; ++i) {
+        if (C[0][i] == 0) {
+            openB = i;
+            break;
+        }
+    }
+    if (openB < 8) 
+        return "error";
+
+    // check for open file descriptor
+    int openFD = 0;
+    for (int i = sizeof(FileDescriptor); i < 6 * BLOCK_SIZE; i += sizeof(FileDescriptor)) { 
+        int b = i / BLOCK_SIZE + 1;
+        FileDescriptor* fd = (FileDescriptor*)&(C[b][i % BLOCK_SIZE]);
+        if (fd->length == 0 && fd->blocks[0] == 0) {
+            openFD = i;
+            break;
+        }
+    }
+    if (openFD == 0)
+        return "error";
+
+    // NEED TO DO WITH OFT
+    // check dir for open FileEntry 
+    FileEntry* fe = nullptr;
+    for (int i = 0; i < BLOCK_SIZE * 3 && seek(0, i) != -1; i += sizeof(FileEntry)) {
+        OpenFile& dir = OFT[0];
+        FileEntry* feTemp = (FileEntry*)&(dir.buff[i % BLOCK_SIZE]);
+        if (strncmp(feTemp->name, name.c_str(), 3) == 0) {
+            fe = feTemp;
+            break;
+        }
+    }
+    if (!fe) // check if FileEntry exists
+        return "error";   
+    
+    // CREATE THE FILE NOW
+
+    return name + " created";
 }
-string Disk::directoryFiles() {
-    string files{};
-    FileDescriptor* dir = getDirFileDescriptor();
-
-    for (int i = 0; i < 3 * 512 && dir->blocks[i / 512]; i += sizeof(FileEntry)) {
-        int block = dir->blocks[i / 512];
-        int index = (i % 512);
-        FileEntry* fe = (FileEntry*)&(blocks[block][index]);
-
-        if (fe->name[0]) // if the FileEntry is valid it will have a name and the 0 index will be initialized
-            files += fe->name + string(" ") + to_string(getFileDescriptor(fe->index)->length) + string(" ");
-    }  
-
-    return files;
+string destroy(const string &name) {
+    return name + " destroyed";
 }
 
-
-
-void initialize(Disk &disk) {
-    disk.initialize();
-    cout << "system initialized" << endl;
-}
-void create(Disk &disk, const string &name) {
-    if (!disk.initialized)
-        cout << NOT_INIT_MSG << endl;
-
-    if (disk.createFile(name))
-        cout << name << " created" << endl;
-    else
-        cout << ERROR_MSG << endl;  
-}
-void destroy(Disk &disk, const string &name) {
-    if (!disk.initialized)
-        cout << NOT_INIT_MSG << endl;
-
-    if (disk.deleteFile(name))
-        cout << name << " created" << endl;
-    else
-        cout << ERROR_MSG << endl;  
-}
-void directory(Disk &disk) {
-    if (!disk.initialized)
-        cout << NOT_INIT_MSG << endl;
-
-    string files = disk.directoryFiles();
-    if (files == "")
-        cout << "directory empty" << endl;
-    else
-        cout << files << endl;        
-}

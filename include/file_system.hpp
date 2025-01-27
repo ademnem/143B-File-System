@@ -4,71 +4,60 @@
 #include <cstring>
 #include <string>
 
-#define ERROR_MSG "error"
-#define NOT_INIT_MSG "system not intiailized"
+#define BLOCKS 64
+#define BLOCK_SIZE 512
+
+// for bitmap
+#define BYTE_ZERO 0;
+#define BYTE_ONE 255;
 
 using namespace std;
 
 
 struct OpenFile {
-    byte buffer[512];
+    unsigned char buff[BLOCK_SIZE];
     int pos; // current position
-    int size; // size of file
-    int index; // descriptor index
+    int size; // length of file
+    int index; // descriptor index 0 <= index < 1536
 };
-
-struct OpenFileTable {
-    OpenFile OFT[4];
-    // 0 is always set to directory
-};
-
 struct FileDescriptor {
     int length; // in bytes
     int blocks[3]; // 0 if not allocated
 };
-
 struct FileEntry {
     char name[4];
     int index; // in bytes
 };
 
-struct Disk {
-    bool initialized = false;
-    byte blocks[64][512];
+extern OpenFile OFT[4];
+extern unsigned char M[BLOCK_SIZE];
+extern unsigned char C[7][BLOCK_SIZE]; 
+extern unsigned char D[BLOCKS][BLOCK_SIZE];
+extern bool init;
 
-    int getFreeBlock();
+// helpers
+void copy_buffer(unsigned char *dest, unsigned char *source, int n);
 
-    FileDescriptor* getDirFileDescriptor();
-    FileDescriptor* getFileDescriptor(int index);
-    int getFreeFileDescriptor();
+// file system
+string initialize();
 
-    FileEntry* getFileEntry(const string &name);
-    FileEntry* getFreeFileEntry();
+int write_memory(const int &mem, const string &str);
+string read_memory(const int &mem, const int &count);
 
-    void initialize();
-    bool createFile(const string &name);
-    bool deleteFile(const string &name);
+int seek(const int &index, const int &pos);
 
-    string directoryFiles();
-};
+int open(const string &name);
+int close(const int &index);
 
+string create(const string &name);
+string destroy(const string &name);
 
+void directory();
 
-void initialize(Disk &disk);
-void create(Disk &disk, const string &name);
-void destroy(Disk &disk, const string &name);
+void read(const int &index, const int &mem, const int &count); 
+void write(const int &index, const int &mem, const int &count); // if full, store blocks, allocate new block
 
-void open(Disk &disk, const string &name);
-void close(Disk &disk, const string &name);
-
-void directory(Disk &disk);
-
-void read(int index, int mem, int count);
-void write(Disk &disk, int index, int mem, int count);
-void seek(Disk &dist, int index, int pos);
-
-void read_memory();
-void write_memory();
-
+void save(ofstream *file);
+void restore(ifstream *file);
 
 #endif
