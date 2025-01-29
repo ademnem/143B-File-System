@@ -16,9 +16,9 @@ using namespace std;
 
 struct OpenFile {
     unsigned char buff[BLOCK_SIZE];
-    int pos; // current position
+    int pos; // current position 0 <= pos < 1536
     int size; // length of file
-    int index; // descriptor index 0 <= index < 1536
+    int index; // descriptor index 
 };
 struct FileDescriptor {
     int length; // in bytes
@@ -35,8 +35,10 @@ extern unsigned char C[7][BLOCK_SIZE];
 extern unsigned char D[BLOCKS][BLOCK_SIZE];
 extern bool init;
 
-// helpers
+// general helpers
 void copy_buffer(unsigned char *dest, unsigned char *source, int n);
+int get_open_block();
+FileDescriptor* get_file_descriptor(int index);
 
 // file system
 string initialize();
@@ -52,12 +54,10 @@ int close(const int &index);
 string create(const string &name);
 string destroy(const string &name);
 
-void directory();
+string directory();
 
-void read(const int &index, const int &mem, const int &count); 
-void write(const int &index, const int &mem, const int &count); // if full, store blocks, allocate new block
-
-void save(ofstream *file);
-void restore(ifstream *file);
+string read(const int &index, const int &mem, const int &count); 
+string write(const int &index, const int &mem, const int &count); // if full, store blocks, allocate new block
+// only write can allocate blocks
 
 #endif
