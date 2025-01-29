@@ -60,7 +60,7 @@ int main() {
         } else if (args.size() == 3 && args[0] == "sk" && isNum(args[1]) && isNum(args[2])) {
             // seek requires 1 <= index <= 3
             int index = stoi(args[1]);
-            if (index > 1 && index < 4) {
+            if (index >= 1 && index <= 3) {
                 int pos = seek(index, stoi(args[2]));
                 if (pos == -1) cout << "error" << endl;
                 else cout << "position is " << pos << endl;

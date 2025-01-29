@@ -83,7 +83,61 @@ void sample_test_case(void) {
     cout << drOutput << endl;
 
     int bytesWritten = write_memory(0, "abcdefghij");
+    assert(strncmp((char*)&(M[0]), "abcdefghij", 10) == 0);
     cout << bytesWritten << endl; 
+
+    cout << create("foo") << endl;
+    feFoo = (FileEntry*)&(D[7][0]);
+    assert(strcmp(feFoo->name, "foo") == 0);
+    assert(feFoo->index == 16);
+    fdFoo = (FileDescriptor*)&(C[1][16]);
+    assert(fdFoo->length == 0);
+    for (int i = 0; i < 3; ++i)
+        assert(fdFoo->blocks[i] == 0);
+ 
+    fooIndex = open("foo");
+    cout << "foo opened " << fooIndex << endl;
+    ofFoo = OFT[1];
+    assert(ofFoo.index == 16);
+    assert(ofFoo.pos == 0);
+    assert(ofFoo.size == 0);
+    for (int i = 0; i < BLOCK_SIZE; ++i)
+        assert(ofFoo.buff[i] == empty[i]);
+
+    cout << write(1, 0, 5) << endl;   
+    assert(strncmp((char*)ofFoo.buff, "abcde", 5) == 0);
+    assert(strncmp((char*)D[8], "abcde", 5) == 0);
+    assert(ofFoo.size == 5);
+    assert(ofFoo.pos == 5);
+    assert(fdFoo->length == 5);
+
+    cout << write(1, 5, 2) << endl;   
+    assert(strncmp((char*)ofFoo.buff, "abcdefg", 7) == 0);
+    assert(strncmp((char*)D[8], "abcdefg", 7) == 0);
+    assert(ofFoo.size == 7);
+    assert(ofFoo.pos == 7);
+    assert(fdFoo->length == 7);
+
+    cout << directory() << endl;
+
+    cout << "position is " << seek(1, 0) << endl;
+    assert(ofFoo.pos == 0);
+
+    cout << read(1, 10, 3) << endl;
+    assert(ofFoo.pos == 3);
+    assert(strncmp((char*)M + 10, "abc", 3) == 0);
+
+    cout << read_memory(0, 20) << endl;
+
+    fooIndex = close(1);
+    cout << fooIndex << " closed" << endl;
+    assert(ofFoo.pos == 0);
+    assert(ofFoo.index == 0);
+    assert(ofFoo.size == 0);
+    for (int i = 0; i < BLOCK_SIZE; ++i)
+        assert(ofFoo.buff[i] == empty[i]);
+
+    cout << directory() << endl;
 }
 
 

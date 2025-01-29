@@ -347,10 +347,11 @@ string read(const int &index, const int &mem, const int &count) {
     if (of.pos + count >= of.size || mem + count >= BLOCK_SIZE)
         return "error";
 
+    int currPos = of.pos;
     for (int i = 0; i < count; ++i) {
-        seek(index, 1);
-        M[mem + i] = of.buff[of.pos];
+        M[mem + i] = of.buff[currPos + i];
     }
+    of.pos = currPos + count;
 
     return to_string(count) + " bytes read from " + to_string(index);
 }
@@ -381,46 +382,21 @@ string write(const int &index, const int &mem, const int &count) { // if full, s
             }
         }
     }
+
     // this can go onto another buffer which has to be saved
     // need to save as its writing
+    int currPos = of.pos;
     for (int i = 0; i < count; ++i) { 
-        seek(index, 1);
-        of.buff[of.pos] = M[mem + i]; // write from M to OFT
+        of.buff[currPos + i] = M[mem + i]; // write from M to OFT
         int b = fd->blocks[of.pos / BLOCK_SIZE];
-        D[b][of.pos % BLOCK_SIZE] = M[mem + i]; // write from OFT to D
+        D[b][currPos + i % BLOCK_SIZE] = M[mem + i]; // write from OFT to D
     }
+    of.pos = currPos + count;
 
-    if (of.pos > of.size)
+    if (of.pos > of.size) {
         of.size = of.pos;
+        fd->length = of.pos;
+    }
       
     return to_string(count) + " bytes written to " + to_string(index);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
