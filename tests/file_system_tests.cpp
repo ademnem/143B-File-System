@@ -139,12 +139,111 @@ void sample_test_case(void) {
 
     cout << directory() << endl;
 }
+void full_file_test(void) {
+    cout << initialize() << endl; 
+
+    cout << create("abc") << endl;
+    FileEntry* feABC = (FileEntry*)&(D[7][0]);
+    assert(strcmp(feABC->name, "abc") == 0);
+    assert(feABC->index == 16);
+    FileDescriptor* fdABC = (FileDescriptor*)&(C[1][16]);
+    assert(fdABC->length == 0);
+    for (int i = 0; i < 3; ++i)
+        assert(fdABC->blocks[i] == 0);
+
+
+    int abcIndex = open("abc");
+    cout << "abc opened " << abcIndex << endl;
+    OpenFile& ofABC = OFT[1];
+    assert(ofABC.index == 16);
+    assert(ofABC.pos == 0);
+    assert(ofABC.size == 0);
+    // check buffer 
+    char empty[BLOCK_SIZE] = {0};
+    for (int i = 0; i < BLOCK_SIZE; ++i)
+        assert(ofABC.buff[i] == empty[i]);
+
+    // setup for writing memory and onto disk
+    string a{};
+    string b{};
+    string c{};
+    for (int i = 0; i < BLOCK_SIZE; ++i) {
+        a += 'a';
+        b += 'b';
+        c += 'c';
+    }
+
+    cout << write_memory(0, a) << " bytes writen to M" << endl;
+    for (int i = 0; i < BLOCK_SIZE; ++i) 
+        assert(M[i] == a[i]);
+    
+    cout << write(1, 0, 512) << endl;
+    int b0 = fdABC->blocks[0];
+    assert(b0 == 8);
+    assert(C[0][8] == 255); 
+    for (int i = 0; i < BLOCK_SIZE; ++i) {
+        assert(ofABC.buff[i] == a[i]);
+        assert(D[b0][i] == a[i]);
+    }
+    assert(fdABC->length == 512);
+    assert(ofABC.pos == 512);
+    assert(ofABC.size == 512);
+
+    cout << write_memory(0, b) << " bytes writen to M" << endl;
+    for (int i = 0; i < BLOCK_SIZE; ++i) 
+        assert(M[i] == b[i]);
+
+    cout << write(1, 0, 512) << endl;
+    int b1 = fdABC->blocks[1];
+    assert(b1 == 9);
+    assert(C[0][9] == 255); 
+    for (int i = 0; i < BLOCK_SIZE; ++i) {
+        assert(ofABC.buff[i] == b[i]);
+        assert(D[b1][i] == b[i]);
+    }
+    assert(fdABC->length == 1024);
+    assert(ofABC.pos == 1024);
+    assert(ofABC.size == 1024);
+
+    cout << write_memory(0, c) << " bytes writen to M" << endl;
+    for (int i = 0; i < BLOCK_SIZE; ++i) 
+        assert(M[i] == c[i]);
+
+    cout << write(1, 0, 512) << endl;
+    int b2 = fdABC->blocks[2];
+    assert(b2 == 10);
+    assert(C[0][10] == 255); 
+    for (int i = 0; i < BLOCK_SIZE; ++i) {
+        assert(ofABC.buff[i] == c[i]);
+        assert(D[b2][i] == c[i]);
+    }
+    assert(fdABC->length == 1536);
+    assert(ofABC.pos == 1536);
+    assert(ofABC.size == 1536);
+
+    cout << directory() << endl;
+
+    cout << "position is " << seek(1, 0) << endl; 
+    assert(ofABC.pos == 0);
+    assert(ofABC.size == 1536);
+    for (int i = 0; i < BLOCK_SIZE; ++i)
+        assert(ofABC.buff[i] == a[i]);
+
+    cout << read(1, 0, 512) << endl;
+    for (int i = 0; i < BLOCK_SIZE; ++i)
+        assert(M[i] == ofABC.buff[i]);
+
+    cout << read_memory(0, 512) << endl;
+    
+    cout << directory() << endl;
+}
 
 
 int main() {
 
     cout << "---=== TESTING ===---" << endl;
-    sample_test_case();
+    // sample_test_case();
+    full_file_test();
 
     return 0;
 }

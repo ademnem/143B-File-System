@@ -344,7 +344,7 @@ string read(const int &index, const int &mem, const int &count) {
     if (of.index == 0 || mem < 0 || mem >= BLOCK_SIZE)
         return "error";
 
-    if (of.pos + count >= of.size || mem + count >= BLOCK_SIZE)
+    if (of.pos + count > of.size || mem + count > BLOCK_SIZE)
         return "error";
 
     int currPos = of.pos;
@@ -365,7 +365,7 @@ string write(const int &index, const int &mem, const int &count) { // if full, s
         return "error";
     
     // check won't index out of memory
-    if (mem + count >= BLOCK_SIZE)
+    if (mem + count > BLOCK_SIZE)
         return "error";
 
     FileDescriptor* fd = get_file_descriptor(of.index);
@@ -387,9 +387,9 @@ string write(const int &index, const int &mem, const int &count) { // if full, s
     // need to save as its writing
     int currPos = of.pos;
     for (int i = 0; i < count; ++i) { 
-        of.buff[currPos + i] = M[mem + i]; // write from M to OFT
+        of.buff[currPos % BLOCK_SIZE + i] = M[mem + i]; // write from M to OFT
         int b = fd->blocks[of.pos / BLOCK_SIZE];
-        D[b][currPos + i % BLOCK_SIZE] = M[mem + i]; // write from OFT to D
+        D[b][currPos % BLOCK_SIZE + i] = M[mem + i]; // write from OFT to D
     }
     of.pos = currPos + count;
 
