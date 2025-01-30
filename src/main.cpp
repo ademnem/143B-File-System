@@ -80,6 +80,8 @@ int main() {
             int bytes = write_memory(stoi(args[1]), args[2]);
             cout << bytes << " bytes written to memory" << endl;
 
+        } else if (args.size() == 0) {
+            return 0;
         } else {
             cout << "error" << endl;
         }
