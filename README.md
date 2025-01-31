@@ -5,15 +5,18 @@ Project 1 for CS 143B class.
 - at least cmake 3.20.0
 - g++
 
-## How to Run
-If on Linux machine:
+## How to Run (FOR GRADERS)
 ```{bash}
-cmake --preset linux
+bash compile.sh
+./build/main < FS-input-1.txt > output.txt
 ```
 
-If on Windows machine:
+
+## How to Run
+Build cmake depending on the OS
 ```{bash}
-cmake --preset windows
+cmake --preset linux
+cmake --prest windows
 ```
 
 To build the binary, enter:
