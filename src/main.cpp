@@ -78,10 +78,14 @@ int main() {
 
         } else if (args.size() == 3 && args[0] == "wm" && isNum(args[1])) {
             int bytes = write_memory(stoi(args[1]), args[2]);
-            cout << bytes << " bytes written to memory" << endl;
+            cout << bytes << " bytes written to M" << endl;
 
-        } else if (args.size() == 0) {
+        } else if (cin.fail()) {
             return 0;
+
+        } else if (command == "") {
+            cout << endl;
+
         } else {
             cout << "error" << endl;
         }

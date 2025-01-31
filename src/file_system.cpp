@@ -77,7 +77,7 @@ string initialize() {
 
     init = true;
 
-    return "system initilaized";
+    return "system initialized";
 }
 int write_memory(const int &mem, const string &str) {
     if (!init)
@@ -116,7 +116,7 @@ int seek(const int &index, const int &pos) {
     OpenFile& of = OFT[index];
     if (index != 0 && of.index == 0) // no open file at index
         return -1;
-    else if (pos >= of.size) // if position exceeds file size
+    else if (pos > of.size) // if position exceeds file size
         return -1;
  
     // get file descriptor
@@ -137,6 +137,7 @@ int open(const string &name) {
     // check filename length
     if (name.length() < 0 || name.length() > 3)
         return -1;
+
     // get open OFT index
     int tableIndex = 0;
     for (int i = 1; i < 4; ++i) {
@@ -161,6 +162,13 @@ int open(const string &name) {
     }
     if (!fe) // check if FileEntry exists
         return -1;   
+
+    // check if file is already open
+    for (int i = 1; i < 4; ++i) {
+        if (OFT[i].index == fe->index) {
+            return -1;
+        }
+    }
 
     // get FileDescriptor
     int fdIndex = fe->index;
@@ -210,7 +218,7 @@ string create(const string &name) {
         OpenFile& dir = OFT[0]; 
         FileEntry* fe = (FileEntry*)&(dir.buff[dir.pos % BLOCK_SIZE]);
         if (strncmp(fe->name, name.c_str(), 3) == 0)
-            return "error: exists";
+            return "error";
     }
 
     // check for open file descriptor
@@ -344,16 +352,17 @@ string read(const int &index, const int &mem, const int &count) {
     if (of.index == 0 || mem < 0 || mem >= BLOCK_SIZE)
         return "error";
 
-    if (of.pos + count > of.size || mem + count > BLOCK_SIZE)
+    if (of.pos + count > 3 * BLOCK_SIZE || mem + count > BLOCK_SIZE)
         return "error";
 
     int currPos = of.pos;
-    for (int i = 0; i < count; ++i) {
-        M[mem + i] = of.buff[currPos + i];
+    int i;
+    for (i = 0; i < count && i < of.size; ++i) {
+        M[mem + i] = of.buff[(currPos + i) % BLOCK_SIZE];
     }
-    of.pos = currPos + count;
+    of.pos = currPos + i;
 
-    return to_string(count) + " bytes read from " + to_string(index);
+    return to_string(i) + " bytes read from " + to_string(index);
 }
 string write(const int &index, const int &mem, const int &count) { // if full, store blocks, allocate new block
     if (!init)
@@ -382,21 +391,21 @@ string write(const int &index, const int &mem, const int &count) { // if full, s
             }
         }
     }
-
     // this can go onto another buffer which has to be saved
     // need to save as its writing
     int currPos = of.pos;
-    for (int i = 0; i < count; ++i) { 
-        of.buff[currPos % BLOCK_SIZE + i] = M[mem + i]; // write from M to OFT
-        int b = fd->blocks[of.pos / BLOCK_SIZE];
-        D[b][currPos % BLOCK_SIZE + i] = M[mem + i]; // write from OFT to D
+    int i;
+    for (i = 0; i < count && currPos + i < 3 * BLOCK_SIZE; ++i) { 
+        of.buff[(currPos + i) % BLOCK_SIZE] = M[mem + i]; // write from M to OFT
+        int b = fd->blocks[(currPos + i) / BLOCK_SIZE];
+        D[b][(currPos + i) % BLOCK_SIZE] = M[mem + i]; // write from OFT to D
     }
-    of.pos = currPos + count;
+    of.pos = currPos + i;
 
     if (of.pos > of.size) {
         of.size = of.pos;
         fd->length = of.pos;
     }
       
-    return to_string(count) + " bytes written to " + to_string(index);
+    return to_string(i) + " bytes written to " + to_string(index);
 }

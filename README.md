@@ -1,6 +1,10 @@
 # 143B-File-System
 Project 1 for CS 143B class.
 
+## Requirements
+- at least cmake 3.20.0
+- g++
+
 ## How to Run
 If on Linux machine:
 ```{bash}
@@ -17,7 +21,12 @@ To build the binary, enter:
 cmake --build build --target main
 ```
 
-To execute the binary, enter:
+To execute the shell, enter:
 ```{bash}
 ./build/main
+```
+
+In order to test against the released results:
+```{bash}
+./build/main < FS-input-1.txt > output.txt
 ```

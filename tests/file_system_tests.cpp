@@ -237,13 +237,34 @@ void full_file_test(void) {
     
     cout << directory() << endl;
 }
+void actual_submission(void) {
+    /*
+    cout << initialize() << endl;
+    cout << write_memory(0, "0123456789") << " bytes written to M" << endl;
+    cout << create("abc") << endl;
+    cout << "abc opened " << open("abc") << endl;
+    cout << write(1, 3, 5) << " bytes written to 1" << endl; 
+    cout << "position is " << seek(1, 0) << endl; 
+    cout << read(1, 20, 9) << endl;
+    cout << read_memory(20, 5) << endl;
+    */
+
+    cout << initialize() << endl;
+    cout << write_memory(0, "abcdefghijklmnopqrstuvwxyz1234abcdefghijklmnopqrstuvwxyz1234abcdefghijklmnopqrstuvwxyz1234ABCDEFGHIJ") << " written to M" << endl;
+    cout << create("abc") << endl;
+    cout << open("abc") << endl;
+    cout << write(1, 0, 400) << endl;
+    cout << write(1, 0, 100) << endl;
+    cout << write(1, 0, 100) << endl;
+}
 
 
 int main() {
 
     cout << "---=== TESTING ===---" << endl;
     // sample_test_case();
-    full_file_test();
+    // full_file_test();
+    actual_submission();
 
     return 0;
 }
