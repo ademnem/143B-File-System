@@ -1,11 +1,11 @@
-# 143B-File-System
+# Basic-File-System
 Project 1 for CS 143B class.
 
 ## Requirements
 - at least cmake 3.20.0
 - g++
 
-## How to Run (FOR GRADERS)
+## How to Run (SIMPLE VERSION)
 ```{bash}
 bash compile.sh
 ./build/main < FS-input-1.txt > output.txt
